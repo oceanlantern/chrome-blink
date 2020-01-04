@@ -22,7 +22,7 @@ Follow instructions below to build on your system it requires Chrome tag 81.0.40
 - copy patch file from patch/systeminfo.patch to your src/systeminfo.patch
 - git apply systeminfo.patch
 - gclient sync --with_branch_heads --with_tags 
-- Build chrome
+- Build chrome e.g. autoninja -C out\dbg64 chrome
 - Launch chrome
 - Open test web page test/index.html
 - Select startSystemInfo button  
