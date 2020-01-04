@@ -16,7 +16,7 @@ See WebIDL draft here: https://heycam.github.io/webidl/#introduction
 Follow instructions below to build on your system it requires Chrome tag 81.0.4010.0.
 
 - Build Chrome by following the Chrome build instructions for your operating system.
-- Then from src directory:
+- Change directory to src directory
 - git fetch --tags
 - git checkout -b br_81.0.4010.0 81.0.4010.0
 - copy patch file from patch/systeminfo.patch to your src/systeminfo.patch
