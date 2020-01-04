@@ -1,0 +1,25 @@
+// Copyright 2019 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module blink.mojom;
+
+import "mojo/public/mojom/base/string16.mojom";
+
+// Interface provided by the browser to the renderer as main entry point to the
+// BrowserManager API. The renderer can request this interface for a
+// specific worker or document, so the browser process will always be able to
+// tell what operations are being done by which document or worker.
+
+interface SystemInfo {
+
+  Start() =>
+      (bool result);
+ 
+  Stop() =>
+      ();
+
+  GetOperatingSystemName() =>
+      (string result);
+
+};
