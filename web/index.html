@@ -1,0 +1,27 @@
+<!-- // authors: tim adams oceanlantern@gmail.com -->
+<html>
+  <head>
+    
+    <script>
+
+      function consoleMsg(msg) {
+          document.getElementById("consoleMsg").innerHTML += '<br>';
+          document.getElementById("consoleMsg").innerHTML += msg;  
+          console.log(msg);
+      }
+           
+    </script>    
+  </head>
+  <body>
+        
+    <button onclick="startSystemInfo()">Start SystemInfo</button>
+    
+    <div>         
+    <p id= "consoleMsg" align="left" style="height: 175px; width: 100%; margin-top: 30px"></p>
+  
+    </div>
+
+    <!-- Load index.js after the content of the page -->
+    <script src="index.js"></script>
+  </body>
+</html>
