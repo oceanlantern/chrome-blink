@@ -1,0 +1,778 @@
+diff --git a/content/browser/BUILD.gn b/content/browser/BUILD.gn
+index 267905248cf2..b3a37fda2f1f 100644
+--- a/content/browser/BUILD.gn
++++ b/content/browser/BUILD.gn
+@@ -1300,6 +1300,7 @@ jumbo_source_set("browser") {
+     "quota_dispatcher_host.h",
+     "renderer_host/agent_metrics_collector.cc",
+     "renderer_host/agent_metrics_collector.h",
++    "renderer_host/system_info_impl.cc",
+     "renderer_host/clipboard_host_impl.cc",
+     "renderer_host/clipboard_host_impl.h",
+     "renderer_host/clipboard_host_impl_mac.mm",
+diff --git a/content/browser/renderer_host/render_process_host_impl.cc b/content/browser/renderer_host/render_process_host_impl.cc
+index 35440989f19e..dafec427126a 100644
+--- a/content/browser/renderer_host/render_process_host_impl.cc
++++ b/content/browser/renderer_host/render_process_host_impl.cc
+@@ -117,6 +117,7 @@
+ #include "content/browser/quota_dispatcher_host.h"
+ #include "content/browser/renderer_host/agent_metrics_collector.h"
+ #include "content/browser/renderer_host/clipboard_host_impl.h"
++#include "content/browser/renderer_host/system_info_impl.h"
+ #include "content/browser/renderer_host/code_cache_host_impl.h"
+ #include "content/browser/renderer_host/embedded_frame_sink_provider_impl.h"
+ #include "content/browser/renderer_host/file_utilities_host_impl.h"
+@@ -2168,6 +2169,9 @@ void RenderProcessHostImpl::RegisterMojoInterfaces() {
+   AddUIThreadInterface(registry.get(),
+                        base::BindRepeating(&ClipboardHostImpl::Create));
+ 
++  AddUIThreadInterface(registry.get(),
++    base::BindRepeating(&SystemInfoImpl::Create));
++
+   AddUIThreadInterface(
+       registry.get(),
+       base::BindRepeating(&RenderProcessHostImpl::BindWebDatabaseHostImpl,
+diff --git a/content/browser/renderer_host/system_info_impl.cc b/content/browser/renderer_host/system_info_impl.cc
+new file mode 100644
+index 000000000000..bf7214e5d51c
+--- /dev/null
++++ b/content/browser/renderer_host/system_info_impl.cc
+@@ -0,0 +1,49 @@
++// Copyright (c) 2012 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++// authors: tim adams oceanlantern@gmail.com
++
++#include "content/browser/renderer_host/system_info_impl.h"
++
++#include <utility>
++#include "base/bind.h"
++#include "base/location.h"
++#include "base/macros.h"
++#include "base/pickle.h"
++#include "base/sequenced_task_runner.h"
++#include "base/strings/utf_string_conversions.h"
++#include "base/threading/sequenced_task_runner_handle.h"
++#include "build/build_config.h"
++#include "mojo/public/cpp/system/platform_handle.h"
++#include "mojo/public/cpp/bindings/callback_helpers.h"
++#include "mojo/public/cpp/bindings/self_owned_receiver.h"
++#include "base/system/sys_info.h"
++
++namespace content {
++                          
++SystemInfoImpl::SystemInfoImpl()  
++  {}
++SystemInfoImpl::~SystemInfoImpl() = default;
++
++void SystemInfoImpl::Create(
++  mojo::PendingReceiver<blink::mojom::SystemInfo> receiver) {
++
++  mojo::MakeSelfOwnedReceiver(std::make_unique<SystemInfoImpl>(),
++    std::move(receiver));
++}
++
++void SystemInfoImpl::Start(StartCallback callback){
++
++  std::move(callback).Run(true);
++}
++
++void SystemInfoImpl::Stop(StopCallback callback) {
++  std::move(callback).Run();
++}
++
++void SystemInfoImpl::GetOperatingSystemName(GetOperatingSystemNameCallback callback) {
++  std::move(callback).Run(base::SysInfo::OperatingSystemName());
++}
++
++
++}  // namespace content
+diff --git a/content/browser/renderer_host/system_info_impl.h b/content/browser/renderer_host/system_info_impl.h
+new file mode 100644
+index 000000000000..0fca3f0d74e3
+--- /dev/null
++++ b/content/browser/renderer_host/system_info_impl.h
+@@ -0,0 +1,37 @@
++// Copyright (c) 2012 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++// authors: tim adams oceanlantern@gmail.com
++
++#ifndef CONTENT_BROWSER_RENDERER_HOST_SYSTEM_INFO_IMPL_H_
++#define CONTENT_BROWSER_RENDERER_HOST_SYSTEM_INFO_IMPL_H_
++
++#include <memory>
++#include <string>
++#include "base/macros.h"
++#include "build/build_config.h"
++#include "content/common/content_export.h"
++#include "mojo/public/cpp/base/big_buffer.h"
++#include "mojo/public/cpp/bindings/receiver.h"
++#include "third_party/blink/public/mojom/systeminfo/system_info.mojom.h"
++
++namespace content {
++
++class CONTENT_EXPORT SystemInfoImpl : public blink::mojom::SystemInfo {
++public:
++    SystemInfoImpl();
++    ~SystemInfoImpl() override;
++
++    static void Create(mojo::PendingReceiver<blink::mojom::SystemInfo> receiver);
++
++private:
++
++    void Start(StartCallback callback) override;
++    void Stop(StopCallback callback) override;
++    void GetOperatingSystemName(GetOperatingSystemNameCallback callback) override;
++};
++
++
++}  // namespace content
++
++#endif  // CONTENT_BROWSER_RENDERER_HOST_SYSTEM_INFO_IMPL_H_
+diff --git a/content/public/app/content_browser_manifest.cc b/content/public/app/content_browser_manifest.cc
+index a434899cd36e..5be80e1fc3cf 100644
+--- a/content/public/app/content_browser_manifest.cc
++++ b/content/public/app/content_browser_manifest.cc
+@@ -56,6 +56,7 @@ const service_manager::Manifest& GetContentBrowserManifest() {
+                   "blink.mojom.AppCacheBackend",
+                   "blink.mojom.BlobRegistry",
+                   "blink.mojom.BroadcastChannelProvider",
++                  "blink.mojom.BrowserMonitorImpl",
+                   "blink.mojom.ClipboardHost",
+                   "blink.mojom.CodeCacheHost",
+                   "blink.mojom.FontUniqueNameLookup",
+diff --git a/third_party/blink/public/mojom/BUILD.gn b/third_party/blink/public/mojom/BUILD.gn
+index 687a0ba72ecb..fa5cea74e708 100644
+--- a/third_party/blink/public/mojom/BUILD.gn
++++ b/third_party/blink/public/mojom/BUILD.gn
+@@ -27,6 +27,7 @@ mojom("mojom_platform") {
+     "background_sync/background_sync.mojom",
+     "badging/badging.mojom",
+     "browser_interface_broker.mojom",
++    "systeminfo/system_info.mojom",
+     "cache_storage/cache_storage.mojom",
+     "choosers/color_chooser.mojom",
+     "choosers/date_time_chooser.mojom",
+diff --git a/third_party/blink/public/mojom/systeminfo/OWNERS b/third_party/blink/public/mojom/systeminfo/OWNERS
+new file mode 100644
+index 000000000000..a7457361acbe
+--- /dev/null
++++ b/third_party/blink/public/mojom/systeminfo/OWNERS
+@@ -0,0 +1,3 @@
++oceanlantern@gmail.com
++
++
+diff --git a/third_party/blink/public/mojom/systeminfo/system_info.mojom b/third_party/blink/public/mojom/systeminfo/system_info.mojom
+new file mode 100644
+index 000000000000..e40b600a5700
+--- /dev/null
++++ b/third_party/blink/public/mojom/systeminfo/system_info.mojom
+@@ -0,0 +1,25 @@
++// Copyright 2019 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++module blink.mojom;
++
++import "mojo/public/mojom/base/string16.mojom";
++
++// Interface provided by the browser to the renderer as main entry point to the
++// BrowserManager API. The renderer can request this interface for a
++// specific worker or document, so the browser process will always be able to
++// tell what operations are being done by which document or worker.
++
++interface SystemInfo {
++
++  Start() =>
++      (bool result);
++ 
++  Stop() =>
++      ();
++
++  GetOperatingSystemName() =>
++      (string result);
++
++};
+diff --git a/third_party/blink/public/mojom/web_feature/web_feature.mojom b/third_party/blink/public/mojom/web_feature/web_feature.mojom
+index f26bc15b86be..a6641da7e2c9 100644
+--- a/third_party/blink/public/mojom/web_feature/web_feature.mojom
++++ b/third_party/blink/public/mojom/web_feature/web_feature.mojom
+@@ -2493,6 +2493,9 @@ enum WebFeature {
+   kWebkitBoxPackCenterDoesSomething = 3124,
+   kWebkitBoxPackEndDoesSomething = 3125,
+   kV8KeyframeEffect_Constructor = 3126,
++  kV8SystemInfo_Start_Method = 3127,
++  kV8SystemInfo_Stop_Method = 3128,
++  kV8SystemInfo_GetOperatingSystemName_Method = 3129,
+ 
+   // Add new features immediately above this line. Don't change assigned
+   // numbers of any item, and don't reuse removed slots.
+diff --git a/third_party/blink/renderer/modules/BUILD.gn b/third_party/blink/renderer/modules/BUILD.gn
+index e7ba2fb4653c..325dedd95891 100644
+--- a/third_party/blink/renderer/modules/BUILD.gn
++++ b/third_party/blink/renderer/modules/BUILD.gn
+@@ -75,6 +75,7 @@ jumbo_component("modules") {
+     "//third_party/blink/renderer/modules/beacon",
+     "//third_party/blink/renderer/modules/bluetooth",
+     "//third_party/blink/renderer/modules/broadcastchannel",
++    "//third_party/blink/renderer/modules/systeminfo",        
+     "//third_party/blink/renderer/modules/cache_storage",
+     "//third_party/blink/renderer/modules/canvas",
+     "//third_party/blink/renderer/modules/clipboard",
+@@ -403,6 +404,7 @@ jumbo_source_set("unit_tests") {
+     "service_worker/service_worker_installed_scripts_manager_test.cc",
+     "service_worker/thread_safe_script_container_test.cc",
+     "service_worker/web_embedded_worker_impl_test.cc",
++    "systeminfo/system_info_unittest.cc",    
+     "video_raf/video_frame_request_callback_collection_test.cc",
+     "wake_lock/wake_lock_manager_test.cc",
+     "wake_lock/wake_lock_sentinel_test.cc",
+diff --git a/third_party/blink/renderer/modules/event_target_modules_names.json5 b/third_party/blink/renderer/modules/event_target_modules_names.json5
+index 46911fe907e3..cfbe65575f40 100644
+--- a/third_party/blink/renderer/modules/event_target_modules_names.json5
++++ b/third_party/blink/renderer/modules/event_target_modules_names.json5
+@@ -77,5 +77,6 @@
+     },
+     "USB",
+     "WakeLockSentinel",
++    "SystemInfo",
+   ],
+ }
+diff --git a/third_party/blink/renderer/modules/modules_idl_files.gni b/third_party/blink/renderer/modules/modules_idl_files.gni
+index 8232d2499167..92632425c3ef 100644
+--- a/third_party/blink/renderer/modules/modules_idl_files.gni
++++ b/third_party/blink/renderer/modules/modules_idl_files.gni
+@@ -88,6 +88,7 @@ modules_idl_files =
+           "bluetooth/bluetooth_service_data_map.idl",
+           "bluetooth/bluetooth_uuid.idl",
+           "broadcastchannel/broadcast_channel.idl",
++          "systeminfo/system_info.idl",
+           "cache_storage/cache.idl",
+           "cache_storage/cache_storage.idl",
+           "canvas/canvas2d/canvas_gradient.idl",
+@@ -580,6 +581,7 @@ modules_dictionary_idl_files =
+           "bluetooth/bluetooth_le_scan_filter_init.idl",
+           "bluetooth/bluetooth_le_scan_options.idl",
+           "bluetooth/request_device_options.idl",
++          "systeminfo/system_info_options.idl",          
+           "cache_storage/cache_query_options.idl",
+           "cache_storage/multi_cache_query_options.idl",
+           "canvas/canvas2d/canvas_rendering_context_2d_settings.idl",
+diff --git a/third_party/blink/renderer/modules/systeminfo/BUILD.gn b/third_party/blink/renderer/modules/systeminfo/BUILD.gn
+new file mode 100644
+index 000000000000..718dde472e43
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/BUILD.gn
+@@ -0,0 +1,19 @@
++# Copyright 2016 The Chromium Authors. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import("//build/buildflag_header.gni")
++import("//third_party/blink/renderer/modules/modules.gni")
++import("//third_party/webrtc/webrtc.gni")
++
++blink_modules_sources("systeminfo") {
++  sources = [
++    "system_info.cc",
++    "system_info.h",
++  ]
++
++  deps = [
++    #":buildflags",
++  ]
++
++}
+diff --git a/third_party/blink/renderer/modules/systeminfo/DEPS b/third_party/blink/renderer/modules/systeminfo/DEPS
+new file mode 100644
+index 000000000000..636abfb3b6b5
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/DEPS
+@@ -0,0 +1,18 @@
++include_rules = [
++    "+base/containers/queue.h",
++    "+base/strings/string_piece.h",
++    "+base/task_runner_util.h",
++    "+base/threading/thread_task_runner_handle.h",
++    "+skia/ext/platform_canvas.h",
++    "-third_party/blink/renderer/modules",
++    "+third_party/blink/renderer/modules/event_modules.h",
++    "+third_party/blink/renderer/modules/event_target_modules.h",
++    "+third_party/blink/renderer/modules/modules_export.h",
++    "+third_party/blink/renderer/modules/systeminfo",
++]
++
++specific_include_rules = {
++    ".*_unittest.cc": [
++        "+base/run_loop.h",        
++    ],
++}
+diff --git a/third_party/blink/renderer/modules/systeminfo/OWNERS b/third_party/blink/renderer/modules/systeminfo/OWNERS
+new file mode 100644
+index 000000000000..e69de29bb2d1
+diff --git a/third_party/blink/renderer/modules/systeminfo/README.md b/third_party/blink/renderer/modules/systeminfo/README.md
+new file mode 100644
+index 000000000000..5256828e4385
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/README.md
+@@ -0,0 +1,2 @@
++## SystemInfo API
++
+diff --git a/third_party/blink/renderer/modules/systeminfo/system_info.cc b/third_party/blink/renderer/modules/systeminfo/system_info.cc
+new file mode 100644
+index 000000000000..ea63477eab0c
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/system_info.cc
+@@ -0,0 +1,275 @@
++// Copyright 2020 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++// authors: tim adams oceanlantern@gmail.com
++
++#include "third_party/blink/renderer/modules/systeminfo/system_info.h"
++
++#include <algorithm>
++#include <limits>
++#include "third_party/blink/public/platform/platform.h"
++#include "third_party/blink/public/platform/task_type.h"
++#include "third_party/blink/renderer/bindings/core/v8/dictionary.h"
++#include "third_party/blink/renderer/core/dom/events/event.h"
++#include "third_party/blink/renderer/core/inspector/console_message.h"
++#include "third_party/blink/renderer/modules/event_target_modules.h"
++#include "third_party/blink/renderer/platform/heap/heap.h"
++#include "third_party/blink/renderer/platform/network/mime/content_type.h"
++#include "third_party/blink/renderer/platform/wtf/functional.h"
++#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
++#include "third_party/blink/renderer/core/dom/document.h"
++#include "third_party/blink/renderer/core/dom/dom_exception.h"
++#include "third_party/blink/renderer/core/frame/local_dom_window.h"
++#include "third_party/blink/renderer/core/frame/local_frame.h"
++#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
++#include "mojo/public/cpp/system/platform_handle.h"
++#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
++
++
++namespace blink {
++
++SystemInfo* SystemInfo::Create(ExecutionContext* context,
++                                     ExceptionState& exception_state) {
++  return MakeGarbageCollected<SystemInfo>(
++      context, SystemInfoOptions::Create(), exception_state);
++}
++
++SystemInfo* SystemInfo::Create(ExecutionContext* context,
++                                     const SystemInfoOptions* options,
++                                     ExceptionState& exception_state) {
++  return MakeGarbageCollected<SystemInfo>(context, options,
++                                             exception_state);
++}
++
++SystemInfo::SystemInfo(ExecutionContext* context,
++                             const SystemInfoOptions* options,
++                             ExceptionState& exception_state)
++    : ContextLifecycleObserver(context),
++      state_(State::kInactive) {
++
++  Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
++    system_info_.BindNewPipeAndPassReceiver());
++
++
++
++  if (context->IsContextDestroyed()) {
++    exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
++                                      "Execution context is detached.");
++    return;
++  }
++}
++
++SystemInfo::~SystemInfo() = default;  
++
++
++ScriptPromise SystemInfo::start(ScriptState* script_state, ExceptionState& exception_state) {
++
++  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
++
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
++  }
++
++  Document* document = To<Document>(GetExecutionContext());
++  if (!document) {
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
++  }
++
++  if (state_ != State::kInactive) {
++
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
++
++  }
++
++  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
++  ScriptPromise resolver_result = resolver->Promise();
++  
++  system_info_->Start(WTF::Bind([](
++    SystemInfo* systemInfo, 
++    ScriptPromiseResolver* resolver, 
++    bool result) {
++
++    if (result) {
++
++       VLOG(1) << "SystemInfo::start succeeded";
++
++       systemInfo->state_ = State::kActive;
++
++       systemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStart));
++
++       resolver->Resolve(true);
++
++     }
++     else {
++
++       VLOG(0) << "SystemInfo::start failed " << result;
++
++       resolver->Reject(
++         MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char*)"SystemInfo::start failed"));
++
++     }
++
++ }, WrapPersistent(this), WrapPersistent(resolver)));
++
++  return resolver_result;
++}
++
++ScriptPromise SystemInfo::stop(ScriptState* script_state, ExceptionState& exception_state) {
++
++  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
++
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
++
++  }
++
++  Document* document = To<Document>(GetExecutionContext());
++  if (!document) {
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
++  }
++
++  if (state_ != State::kActive) {
++
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
++
++  }
++
++  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
++  ScriptPromise resolver_result = resolver->Promise();
++
++  system_info_->Stop(WTF::Bind([](
++    SystemInfo* SystemInfo, 
++    ScriptPromiseResolver* resolver) {
++
++      VLOG(1) << "SystemInfo::stop succeeded";
++
++      SystemInfo->state_ = State::kInactive;
++
++      SystemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
++
++      resolver->Resolve(true);
++
++  }, WrapPersistent(this), WrapPersistent(resolver)));
++
++  return resolver_result;
++}
++
++ScriptPromise SystemInfo::getOperatingSystemName(ScriptState* script_state, ExceptionState& exception_state) {
++
++  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
++
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
++
++  }
++
++  Document* document = To<Document>(GetExecutionContext());
++  if (!document) {
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
++  }
++
++  if (state_ != State::kActive) {
++    return ScriptPromise::RejectWithDOMException(
++      script_state,
++      MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
++  }
++
++  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
++  ScriptPromise resolver_result = resolver->Promise();
++
++  system_info_->GetOperatingSystemName(WTF::Bind([](
++    SystemInfo* systemInfo,
++    ScriptPromiseResolver* resolver,
++    const WTF::String& result) {
++
++    if (result.length()) {
++
++      VLOG(1) << "SystemInfo::GetOperatingSystemName succeeded";
++
++      resolver->Resolve(result);
++
++    }
++    else {
++
++      VLOG(0) << "SystemInfo::GetOperatingSystemName failed " << result;
++
++      resolver->Reject(
++        MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char*)"SystemInfo::start failed"));
++
++    }
++
++  }, WrapPersistent(this), WrapPersistent(resolver)));
++
++
++  return resolver_result;
++}
++
++
++const AtomicString& SystemInfo::InterfaceName() const {
++  return event_target_names::kSystemInfo;
++}
++
++ExecutionContext* SystemInfo::GetExecutionContext() const {
++  return ContextLifecycleObserver::GetExecutionContext();
++}
++
++void SystemInfo::Shutdown() {
++
++  if (state_ != State::kInactive){
++    ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
++  }
++
++  state_ = State::kInactive;
++  
++}
++
++bool SystemInfo::HasPendingActivity() const
++{ 
++  return (state_ != State::kInactive);
++}
++
++void SystemInfo::ContextDestroyed(ExecutionContext*) {
++  Shutdown();
++}
++
++void SystemInfo::ScheduleDispatchEvent(Event* event) {
++  scheduled_events_.push_back(event);
++  // Only schedule a post if we are placing the first item in the queue.
++  if (scheduled_events_.size() == 1) {
++    if (auto* context = GetExecutionContext()) {
++      context->GetTaskRunner(TaskType::kDOMManipulation)
++          ->PostTask(FROM_HERE,
++                     WTF::Bind(&SystemInfo::DispatchScheduledEvent,
++                               WrapPersistent(this)));
++    }
++  }
++}
++
++void SystemInfo::DispatchScheduledEvent() {
++  HeapVector<Member<Event>> events;
++  events.swap(scheduled_events_);
++
++  for (const auto& event : events)
++    DispatchEvent(*event);
++}
++
++void SystemInfo::Trace(blink::Visitor* visitor) {
++  visitor->Trace(scheduled_events_);
++  EventTargetWithInlineData::Trace(visitor);
++  ContextLifecycleObserver::Trace(visitor);
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/modules/systeminfo/system_info.h b/third_party/blink/renderer/modules/systeminfo/system_info.h
+new file mode 100644
+index 000000000000..6c7ad5fc14b4
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/system_info.h
+@@ -0,0 +1,81 @@
++// Copyright 2020 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++// authors: tim adams oceanlantern@gmail.com
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_SYSTEM_INFO_H_
++#define THIRD_PARTY_BLINK_RENDERER_MODULES_SYSTEM_INFO_H_
++
++#include <memory>
++#include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
++#include "third_party/blink/renderer/core/dom/events/event_target.h"
++#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
++#include "third_party/blink/renderer/modules/event_target_modules.h"
++#include "third_party/blink/renderer/modules/systeminfo/system_info_options.h"
++#include "third_party/blink/renderer/modules/modules_export.h"
++#include "mojo/public/cpp/bindings/remote.h"
++#include "third_party/blink/public/mojom/systeminfo/system_info.mojom-blink.h"
++
++
++namespace blink {
++
++class ExceptionState;
++class LocalDOMWindow;
++class ScriptPromise;
++class ScriptState;
++
++class MODULES_EXPORT SystemInfo
++    : public EventTargetWithInlineData,
++      public ActiveScriptWrappable<SystemInfo>,
++      public ContextLifecycleObserver {
++  USING_GARBAGE_COLLECTED_MIXIN(SystemInfo);
++  DEFINE_WRAPPERTYPEINFO();
++
++ public:
++  enum class State { kInactive = 0, kActive };
++
++  static SystemInfo* Create(ExecutionContext* context,
++                               ExceptionState& exception_state);
++  static SystemInfo* Create(ExecutionContext* context,
++                               const SystemInfoOptions* options,
++                               ExceptionState& exception_state);
++
++  SystemInfo(ExecutionContext* context,
++                const SystemInfoOptions* options,
++                ExceptionState& exception_state);
++  ~SystemInfo() override;
++
++  DEFINE_ATTRIBUTE_EVENT_LISTENER(start, kStart)
++  DEFINE_ATTRIBUTE_EVENT_LISTENER(stop, kStop)
++
++  ScriptPromise start(ScriptState*, ExceptionState& exception_state);
++  ScriptPromise stop(ScriptState*, ExceptionState& exception_state);
++  ScriptPromise getOperatingSystemName(ScriptState* script_state, ExceptionState& exception_state);
++
++  // EventTarget
++  const AtomicString& InterfaceName() const override;
++  ExecutionContext* GetExecutionContext() const override;
++
++  // ContextLifecycleObserver
++  void ContextDestroyed(ExecutionContext* context) override;
++
++  // ScriptWrappable
++  bool HasPendingActivity() const final;
++
++  void Trace(blink::Visitor* visitor) override;
++
++ private:
++
++  void Shutdown();
++  void ScheduleDispatchEvent(Event* event);
++  void DispatchScheduledEvent();
++
++  State state_;
++  mojo::Remote<mojom::blink::SystemInfo> system_info_;
++
++  HeapVector<Member<Event>> scheduled_events_;
++};
++
++}  // namespace blink
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_MODULES_SYSTEM_INFO_H_
+diff --git a/third_party/blink/renderer/modules/systeminfo/system_info.idl b/third_party/blink/renderer/modules/systeminfo/system_info.idl
+new file mode 100644
+index 000000000000..edf89277b4c8
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/system_info.idl
+@@ -0,0 +1,19 @@
++// Copyright 2015 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++
++[
++    ActiveScriptWrappable,
++    Exposed=Window
++] interface SystemInfo : EventTarget {
++    [CallWith=ExecutionContext, RaisesException] constructor(optional SystemInfoOptions options);
++
++    attribute EventHandler onstart;
++    attribute EventHandler onstop;
++    
++    [CallWith = ScriptState, RaisesException, Measure] Promise<void> start();
++    [CallWith = ScriptState, RaisesException, Measure] Promise<void> stop();
++    [CallWith = ScriptState, RaisesException, Measure] Promise<DomString> getOperatingSystemName();
++
++};
+diff --git a/third_party/blink/renderer/modules/systeminfo/system_info_options.idl b/third_party/blink/renderer/modules/systeminfo/system_info_options.idl
+new file mode 100644
+index 000000000000..a8babbb304c5
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/system_info_options.idl
+@@ -0,0 +1,8 @@
++// Copyright 2015 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++dictionary SystemInfoOptions {
++    DOMString type;  
++
++};
+diff --git a/third_party/blink/renderer/modules/systeminfo/system_info_unittest.cc b/third_party/blink/renderer/modules/systeminfo/system_info_unittest.cc
+new file mode 100644
+index 000000000000..c0a89b594f96
+--- /dev/null
++++ b/third_party/blink/renderer/modules/systeminfo/system_info_unittest.cc
+@@ -0,0 +1,44 @@
++// Copyright 2015 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include <stddef.h>
++#include <string>
++#include "base/macros.h"
++#include "base/run_loop.h"
++#include "base/time/time.h"
++#include "third_party/blink/renderer/modules/systeminfo/system_info.h"
++#include "testing/gmock/include/gmock/gmock.h"
++#include "testing/gtest/include/gtest/gtest.h"
++#include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
++#include "third_party/blink/public/web/web_heap.h"
++#include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
++#include "third_party/blink/renderer/platform/bindings/exception_state.h"
++#include "third_party/blink/renderer/platform/heap/heap.h"
++#include "third_party/blink/renderer/platform/heap/thread_state.h"
++#include "third_party/blink/renderer/platform/testing/io_task_runner_testing_platform_support.h"
++#include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
++
++
++namespace blink {
++
++  class MockSystemInfo : public SystemInfo {
++  public:
++    MockSystemInfo(V8TestingScope& scope)
++      : SystemInfo(scope.GetExecutionContext(),
++        SystemInfoOptions::Create(),
++        scope.GetExceptionState()) {}
++    ~MockSystemInfo() final = default;
++  };
++
++  TEST(SystemInfoTest, Create) {
++    V8TestingScope scope;
++    auto* systeminfo = MakeGarbageCollected<MockSystemInfo>(scope);
++
++    ASSERT_TRUE(systeminfo);  
++
++    
++}
++
++
++}  // namespace blink
