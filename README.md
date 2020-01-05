@@ -24,7 +24,7 @@ Follow instructions below to build on your system it requires Chrome tag 81.0.40
 - gclient sync --with_branch_heads --with_tags 
 - Build chrome e.g. autoninja -C out\dbg64 chrome
 - Launch chrome
-- Open test web page test/index.html
+- Open test web page web/index.html
 - Select startSystemInfo button  
 
 ## Blink API Implementation Diagram
