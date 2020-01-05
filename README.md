@@ -124,6 +124,6 @@ And on the Browser implementation side the SystemInfo Mojo interface is included
 
 ![Windows Screenshot](/images/windows_systeminfo.png)
 
-## Macintosh Screenshot
+## macOS Screenshot
 
 ![Macintosh Screenshot](/images/mac_systeminfo.png)
