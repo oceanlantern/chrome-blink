@@ -43,8 +43,8 @@ void SystemInfoImpl::Create(
 // process called from Blink/Renderer process
 //
 // This function queries the operating system name using the abstracted base APIs.
-// The callback is run and the lambda callback and the lambda callback
-// function is executed in Blink/Renderer process
+// The callback is run and the lambda callback function is executed in Blink/Renderer 
+// process
 //
 //=============================================================================
 

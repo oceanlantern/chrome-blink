@@ -33,6 +33,7 @@ namespace blink
 // Create
 //
 //=============================================================================
+
 SystemInfo *SystemInfo::Create(ExecutionContext *context,
                                ExceptionState &exception_state)
 {
@@ -45,6 +46,7 @@ SystemInfo *SystemInfo::Create(ExecutionContext *context,
 // Create
 //
 //=============================================================================
+
 SystemInfo *SystemInfo::Create(ExecutionContext *context,
                                const SystemInfoOptions *options,
                                ExceptionState &exception_state)
@@ -105,10 +107,8 @@ SystemInfo::~SystemInfo() = default;
 
 ScriptPromise SystemInfo::start(ScriptState *script_state, ExceptionState &exception_state)
 {
-
   if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
   {
-
     return ScriptPromise::RejectWithDOMException(
         script_state,
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
@@ -124,7 +124,6 @@ ScriptPromise SystemInfo::start(ScriptState *script_state, ExceptionState &excep
 
   if (state_ != State::kInactive)
   {
-
     return ScriptPromise::RejectWithDOMException(
         script_state,
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
@@ -142,7 +141,6 @@ ScriptPromise SystemInfo::start(ScriptState *script_state, ExceptionState &excep
                                     bool result) {
     if (result)
     {
-
       VLOG(1) << "SystemInfo::start succeeded";
 
       systemInfo->state_ = State::kActive;
@@ -153,14 +151,12 @@ ScriptPromise SystemInfo::start(ScriptState *script_state, ExceptionState &excep
     }
     else
     {
-
       VLOG(0) << "SystemInfo::start failed " << result;
 
       resolver->Reject(
           MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char *)"SystemInfo::start failed"));
     }
-  },
-                                WrapPersistent(this), WrapPersistent(resolver)));
+  }, WrapPersistent(this), WrapPersistent(resolver)));
 
   return resolver_result;
 }
@@ -188,7 +184,6 @@ ScriptPromise SystemInfo::stop(ScriptState *script_state, ExceptionState &except
 
   if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
   {
-
     return ScriptPromise::RejectWithDOMException(
         script_state,
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
@@ -204,7 +199,6 @@ ScriptPromise SystemInfo::stop(ScriptState *script_state, ExceptionState &except
 
   if (state_ != State::kActive)
   {
-
     return ScriptPromise::RejectWithDOMException(
         script_state,
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
@@ -226,8 +220,7 @@ ScriptPromise SystemInfo::stop(ScriptState *script_state, ExceptionState &except
     SystemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
 
     resolver->Resolve(true);
-  },
-                               WrapPersistent(this), WrapPersistent(resolver)));
+  }, WrapPersistent(this), WrapPersistent(resolver)));
 
   return resolver_result;
 }
@@ -252,10 +245,8 @@ ScriptPromise SystemInfo::stop(ScriptState *script_state, ExceptionState &except
 
 ScriptPromise SystemInfo::getOperatingSystemName(ScriptState *script_state, ExceptionState &exception_state)
 {
-
   if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
   {
-
     return ScriptPromise::RejectWithDOMException(
         script_state,
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
@@ -288,21 +279,18 @@ ScriptPromise SystemInfo::getOperatingSystemName(ScriptState *script_state, Exce
                                                      const WTF::String &result) {
     if (result.length())
     {
-
       VLOG(1) << "SystemInfo::GetOperatingSystemName succeeded";
 
       resolver->Resolve(result);
     }
     else
     {
-
       VLOG(0) << "SystemInfo::GetOperatingSystemName failed " << result;
 
       resolver->Reject(
           MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char *)"SystemInfo::start failed"));
     }
-  },
-                                                 WrapPersistent(this), WrapPersistent(resolver)));
+  }, WrapPersistent(this), WrapPersistent(resolver)));
 
   return resolver_result;
 }
@@ -319,7 +307,6 @@ ExecutionContext *SystemInfo::GetExecutionContext() const
 
 void SystemInfo::Shutdown()
 {
-
   if (state_ != State::kInactive)
   {
     ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
