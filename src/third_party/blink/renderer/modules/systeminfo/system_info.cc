@@ -25,231 +25,327 @@
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 
+namespace blink
+{
 
-namespace blink {
-
-SystemInfo* SystemInfo::Create(ExecutionContext* context,
-                                     ExceptionState& exception_state) {
+// ============================================================================
+//
+// Create
+//
+//=============================================================================
+SystemInfo *SystemInfo::Create(ExecutionContext *context,
+                               ExceptionState &exception_state)
+{
   return MakeGarbageCollected<SystemInfo>(
       context, SystemInfoOptions::Create(), exception_state);
 }
 
-SystemInfo* SystemInfo::Create(ExecutionContext* context,
-                                     const SystemInfoOptions* options,
-                                     ExceptionState& exception_state) {
+// ============================================================================
+//
+// Create
+//
+//=============================================================================
+SystemInfo *SystemInfo::Create(ExecutionContext *context,
+                               const SystemInfoOptions *options,
+                               ExceptionState &exception_state)
+{
   return MakeGarbageCollected<SystemInfo>(context, options,
-                                             exception_state);
+                                          exception_state);
 }
 
-SystemInfo::SystemInfo(ExecutionContext* context,
-                             const SystemInfoOptions* options,
-                             ExceptionState& exception_state)
+// ============================================================================
+//
+// SystemInfo::SystemInfo
+//
+//=============================================================================
+
+SystemInfo::SystemInfo(ExecutionContext *context,
+                       const SystemInfoOptions *options,
+                       ExceptionState &exception_state)
     : ContextLifecycleObserver(context),
-      state_(State::kInactive) {
+      state_(State::kInactive)
+{
 
   Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
-    system_info_.BindNewPipeAndPassReceiver());
+      system_info_.BindNewPipeAndPassReceiver());
 
-
-
-  if (context->IsContextDestroyed()) {
+  if (context->IsContextDestroyed())
+  {
     exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
                                       "Execution context is detached.");
     return;
   }
 }
 
-SystemInfo::~SystemInfo() = default;  
+// ============================================================================
+//
+// SystemInfo::~SystemInfo
+//
+//=============================================================================
 
+SystemInfo::~SystemInfo() = default;
 
-ScriptPromise SystemInfo::start(ScriptState* script_state, ExceptionState& exception_state) {
+// ============================================================================
+//
+// start:
+//
+// C++ implementation of start function callable from JavaScript
+// and declered in system_info.idl.
+//
+// Function makes asynchronous call to Browser process using Mojo IPC where
+// processing function is implemented.
+//
+// When asynchronous function completes the result is returned to JavaScript by
+// completing Promise or throwing an exception.
+//
+// See content\browser\renderer_host\system_info_impl.cc for browser side
+// implementation.
+//
+//=============================================================================
 
-  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
+ScriptPromise SystemInfo::start(ScriptState *script_state, ExceptionState &exception_state)
+{
+
+  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
+  {
 
     return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
   }
 
-  Document* document = To<Document>(GetExecutionContext());
-  if (!document) {
+  Document *document = To<Document>(GetExecutionContext());
+  if (!document)
+  {
     return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
   }
 
-  if (state_ != State::kInactive) {
+  if (state_ != State::kInactive)
+  {
 
     return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
-
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
   }
 
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  auto *resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise resolver_result = resolver->Promise();
-  
+
+  //
+  // Make call to implementation function in Browser process using Mojo IPC with lamda callback
+  //
   system_info_->Start(WTF::Bind([](
-    SystemInfo* systemInfo, 
-    ScriptPromiseResolver* resolver, 
-    bool result) {
+                                    SystemInfo *systemInfo,
+                                    ScriptPromiseResolver *resolver,
+                                    bool result) {
+    if (result)
+    {
 
-    if (result) {
+      VLOG(1) << "SystemInfo::start succeeded";
 
-       VLOG(1) << "SystemInfo::start succeeded";
+      systemInfo->state_ = State::kActive;
 
-       systemInfo->state_ = State::kActive;
-
-       systemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStart));
-
-       resolver->Resolve(true);
-
-     }
-     else {
-
-       VLOG(0) << "SystemInfo::start failed " << result;
-
-       resolver->Reject(
-         MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char*)"SystemInfo::start failed"));
-
-     }
-
- }, WrapPersistent(this), WrapPersistent(resolver)));
-
-  return resolver_result;
-}
-
-ScriptPromise SystemInfo::stop(ScriptState* script_state, ExceptionState& exception_state) {
-
-  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
-
-    return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
-
-  }
-
-  Document* document = To<Document>(GetExecutionContext());
-  if (!document) {
-    return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
-  }
-
-  if (state_ != State::kActive) {
-
-    return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
-
-  }
-
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
-  ScriptPromise resolver_result = resolver->Promise();
-
-  system_info_->Stop(WTF::Bind([](
-    SystemInfo* SystemInfo, 
-    ScriptPromiseResolver* resolver) {
-
-      VLOG(1) << "SystemInfo::stop succeeded";
-
-      SystemInfo->state_ = State::kInactive;
-
-      SystemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
+      systemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStart));
 
       resolver->Resolve(true);
+    }
+    else
+    {
 
-  }, WrapPersistent(this), WrapPersistent(resolver)));
+      VLOG(0) << "SystemInfo::start failed " << result;
+
+      resolver->Reject(
+          MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char *)"SystemInfo::start failed"));
+    }
+  },
+                                WrapPersistent(this), WrapPersistent(resolver)));
 
   return resolver_result;
 }
 
-ScriptPromise SystemInfo::getOperatingSystemName(ScriptState* script_state, ExceptionState& exception_state) {
+// ============================================================================
+//
+// stop:
+//
+// C++ implementation of stop function callable from JavaScript
+// and declared in system_info.idl.
+//
+// Function makes asynchronous call to Browser process using Mojo IPC where
+// processing function is implemented.
+//
+// When asynchronous function completes the resultis returned to JavaScript by
+// completing Promise or throwing an exception.
+//
+// See content\browser\renderer_host\system_info_impl.cc for browser side
+// implementation.
+//
+//=============================================================================
 
-  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed()) {
+ScriptPromise SystemInfo::stop(ScriptState *script_state, ExceptionState &exception_state)
+{
+
+  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
+  {
 
     return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
-
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
   }
 
-  Document* document = To<Document>(GetExecutionContext());
-  if (!document) {
+  Document *document = To<Document>(GetExecutionContext());
+  if (!document)
+  {
     return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
   }
 
-  if (state_ != State::kActive) {
+  if (state_ != State::kActive)
+  {
+
     return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
   }
 
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  auto *resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise resolver_result = resolver->Promise();
 
-  system_info_->GetOperatingSystemName(WTF::Bind([](
-    SystemInfo* systemInfo,
-    ScriptPromiseResolver* resolver,
-    const WTF::String& result) {
+  //
+  // Make call to implementation function in Browser process using Mojo IPC with lamda callback
+  //
+  system_info_->Stop(WTF::Bind([](
+                                   SystemInfo *SystemInfo,
+                                   ScriptPromiseResolver *resolver) {
+    VLOG(1) << "SystemInfo::stop succeeded";
 
-    if (result.length()) {
+    SystemInfo->state_ = State::kInactive;
+
+    SystemInfo->ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
+
+    resolver->Resolve(true);
+  },
+                               WrapPersistent(this), WrapPersistent(resolver)));
+
+  return resolver_result;
+}
+
+// ============================================================================
+//
+// getOperatingSystemName:
+//
+// C++ implementation of getOperatingSystemName function callable from JavaScript
+// and declared in system_info.idl.
+//
+// Function makes asynchronous call to Browser process using Mojo IPC where
+// processing function is implemented.
+//
+// When asynchronous function completes the resultis returned to JavaScript by
+// completing Promise or throwing an exception.
+//
+// See content\browser\renderer_host\system_info_impl.cc for browser side
+// implementation.
+//
+//=============================================================================
+
+ScriptPromise SystemInfo::getOperatingSystemName(ScriptState *script_state, ExceptionState &exception_state)
+{
+
+  if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
+  {
+
+    return ScriptPromise::RejectWithDOMException(
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError));
+  }
+
+  Document *document = To<Document>(GetExecutionContext());
+  if (!document)
+  {
+    return ScriptPromise::RejectWithDOMException(
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError));
+  }
+
+  if (state_ != State::kActive)
+  {
+    return ScriptPromise::RejectWithDOMException(
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError));
+  }
+
+  auto *resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromise resolver_result = resolver->Promise();
+
+  //
+  // Make call to implementation function in Browser process using Mojo IPC with lamda callback
+  //
+  system_info_->GetOperatingSystemName(WTF::Bind([](
+                                                     SystemInfo *systemInfo,
+                                                     ScriptPromiseResolver *resolver,
+                                                     const WTF::String &result) {
+    if (result.length())
+    {
 
       VLOG(1) << "SystemInfo::GetOperatingSystemName succeeded";
 
       resolver->Resolve(result);
-
     }
-    else {
+    else
+    {
 
       VLOG(0) << "SystemInfo::GetOperatingSystemName failed " << result;
 
       resolver->Reject(
-        MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char*)"SystemInfo::start failed"));
-
+          MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError, (char *)"SystemInfo::start failed"));
     }
-
-  }, WrapPersistent(this), WrapPersistent(resolver)));
-
+  },
+                                                 WrapPersistent(this), WrapPersistent(resolver)));
 
   return resolver_result;
 }
 
-
-const AtomicString& SystemInfo::InterfaceName() const {
+const AtomicString &SystemInfo::InterfaceName() const
+{
   return event_target_names::kSystemInfo;
 }
 
-ExecutionContext* SystemInfo::GetExecutionContext() const {
+ExecutionContext *SystemInfo::GetExecutionContext() const
+{
   return ContextLifecycleObserver::GetExecutionContext();
 }
 
-void SystemInfo::Shutdown() {
+void SystemInfo::Shutdown()
+{
 
-  if (state_ != State::kInactive){
+  if (state_ != State::kInactive)
+  {
     ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
   }
 
   state_ = State::kInactive;
-  
 }
 
 bool SystemInfo::HasPendingActivity() const
-{ 
+{
   return (state_ != State::kInactive);
 }
 
-void SystemInfo::ContextDestroyed(ExecutionContext*) {
+void SystemInfo::ContextDestroyed(ExecutionContext *)
+{
   Shutdown();
 }
 
-void SystemInfo::ScheduleDispatchEvent(Event* event) {
+void SystemInfo::ScheduleDispatchEvent(Event *event)
+{
   scheduled_events_.push_back(event);
   // Only schedule a post if we are placing the first item in the queue.
-  if (scheduled_events_.size() == 1) {
-    if (auto* context = GetExecutionContext()) {
+  if (scheduled_events_.size() == 1)
+  {
+    if (auto *context = GetExecutionContext())
+    {
       context->GetTaskRunner(TaskType::kDOMManipulation)
           ->PostTask(FROM_HERE,
                      WTF::Bind(&SystemInfo::DispatchScheduledEvent,
@@ -258,18 +354,20 @@ void SystemInfo::ScheduleDispatchEvent(Event* event) {
   }
 }
 
-void SystemInfo::DispatchScheduledEvent() {
+void SystemInfo::DispatchScheduledEvent()
+{
   HeapVector<Member<Event>> events;
   events.swap(scheduled_events_);
 
-  for (const auto& event : events)
+  for (const auto &event : events)
     DispatchEvent(*event);
 }
 
-void SystemInfo::Trace(blink::Visitor* visitor) {
+void SystemInfo::Trace(blink::Visitor *visitor)
+{
   visitor->Trace(scheduled_events_);
   EventTargetWithInlineData::Trace(visitor);
   ContextLifecycleObserver::Trace(visitor);
 }
 
-}  // namespace blink
+} // namespace blink

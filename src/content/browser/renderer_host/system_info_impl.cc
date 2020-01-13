@@ -19,31 +19,73 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "base/system/sys_info.h"
 
-namespace content {
-                          
-SystemInfoImpl::SystemInfoImpl()  
-  {}
+namespace content
+{
+
+SystemInfoImpl::SystemInfoImpl()
+{
+}
 SystemInfoImpl::~SystemInfoImpl() = default;
 
 void SystemInfoImpl::Create(
-  mojo::PendingReceiver<blink::mojom::SystemInfo> receiver) {
+    mojo::PendingReceiver<blink::mojom::SystemInfo> receiver)
+{
 
   mojo::MakeSelfOwnedReceiver(std::make_unique<SystemInfoImpl>(),
-    std::move(receiver));
+                              std::move(receiver));
 }
 
-void SystemInfoImpl::Start(StartCallback callback){
+// ============================================================================
+//
+// GetOperatingSystemName:
+//
+// C++ implementation of GetOperatingSystemName function executing in Browser
+// process called from Blink/Renderer process
+//
+// This function queries the operating system name using the abstracted base APIs.
+// The callback is run and the lambda callback and the lambda callback
+// function is executed in Blink/Renderer process
+//
+//=============================================================================
+
+void SystemInfoImpl::GetOperatingSystemName(GetOperatingSystemNameCallback callback)
+{
+  std::move(callback).Run(base::SysInfo::OperatingSystemName());
+}
+
+// ============================================================================
+//
+// Start:
+//
+// C++ implementation of Start function executing in Browser
+// process called from Blink/Renderer process
+//
+// For this example function the callback is run and the lambda callback
+// function is executed in Blink/Renderer process
+//
+//=============================================================================
+
+void SystemInfoImpl::Start(StartCallback callback)
+{
 
   std::move(callback).Run(true);
 }
 
-void SystemInfoImpl::Stop(StopCallback callback) {
+// ============================================================================
+//
+// Stop:
+//
+// C++ implementation of Stop function executing in Browser
+// process called from Blink/Renderer process
+//
+// For this example function the callback is run and the lambda callback
+// function is executed in Blink/Renderer process
+//
+//=============================================================================
+
+void SystemInfoImpl::Stop(StopCallback callback)
+{
   std::move(callback).Run();
 }
 
-void SystemInfoImpl::GetOperatingSystemName(GetOperatingSystemNameCallback callback) {
-  std::move(callback).Run(base::SysInfo::OperatingSystemName());
-}
-
-
-}  // namespace content
+} // namespace content
