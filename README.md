@@ -21,7 +21,10 @@ Follow instructions below to build on your system it requires Chrome tag 81.0.40
 - git checkout -b br_81.0.4010.0 81.0.4010.0
 - copy patch file from patch/systeminfo.patch to your src/systeminfo.patch
 - git apply systeminfo.patch
-- gclient sync --with_branch_heads --with_tags 
+- Windows / Mac:
+    - gclient sync --with_branch_heads --with_tags 
+- Linux:
+    - gclient sync
 - Build chrome e.g. autoninja -C out\dbg64 chrome
 - Launch chrome
 - Open test web page web/index.html
@@ -127,3 +130,8 @@ And on the Browser implementation side the SystemInfo Mojo interface is included
 ## macOS Screenshot
 
 ![Macintosh Screenshot](/images/mac_systeminfo.png)
+
+## Linux Screenshot
+
+![Linux Screenshot](/images/linux_systeminfo.png)
+
