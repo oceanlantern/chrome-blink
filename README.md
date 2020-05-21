@@ -1,7 +1,7 @@
 # chrome-blink
 This project creates a new WebIDL and native C++ interface in Chromium's Blink component that is callable by JavaScript.  The client implementation is in the Renderer process and the Host implementation is in the Browser process. Inter-process communication is implemented using Mojo IPC and only the Browser process code calls abstracted native APIs - following Chromium’s security and implementation model.  
 
-The project is cross-platform and has been tested on Windows and Macintosh operating systems.
+The project is cross-platform and has been tested on Windows, Macintosh and Linux operating systems.
     
 ## Background
 Blink is the layout and rendering engine used by Chrome.  It shares the DOM and works in conjunction with the JavaScript V8 engine to produce a visual that is rasterized or output by the GPU component.
