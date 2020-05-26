@@ -28,7 +28,7 @@ Follow instructions below to build on your system it requires Chrome tag 81.0.40
 - Build chrome e.g. autoninja -C out\dbg64 chrome
 - Launch chrome
 - Open test web page web/index.html
-- Select startSystemInfo button  
+- Select startSystemInfo button
 
 ## Blink API Implementation Diagram
 
